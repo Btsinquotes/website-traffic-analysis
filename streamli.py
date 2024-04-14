@@ -2,9 +2,9 @@ import pandas as pd
 import streamlit as st_module
 import plotly.express as px
 import plotly.graph_objects as go
-import numpy as np
-import seaborn as sns
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt  # Importing matplotlib.pyplot
+import seaborn as sns  # Importing seaborn for heatmap
+
 
 # Display introductory image
 def display_image():
@@ -20,6 +20,7 @@ def load_dataset(file_path):
 def display_data(df):
     st_module.write(df)
 
+# Bar graph
 # Bar graph
 def bargraph(df):
     st_module.subheader("Bar Graph")
@@ -39,18 +40,19 @@ def bargraph(df):
             # Group by Month and sum Pageviews
             monthly_pageviews = df_filtered.groupby('Month of the year')['Pageviews'].sum().reset_index()
 
-            # Plot bar graph
-            fig = px.bar(monthly_pageviews, x='Month of the year', y='Pageviews', 
-                         title=f'Pageviews by Month in {selected_year}',
-                         labels={'Pageviews': 'Pageviews Count'},
-                         hover_name='Month of the year',
-                         hover_data={'Pageviews': True, 'Month of the year': False},
-                         color_discrete_sequence=['#1f77b4'])  # Blue color scheme
-            fig.update_layout(xaxis_title='Month of the Year', yaxis_title='Pageviews Count')
-            fig.update_traces(marker_line_color='rgb(8,48,107)', marker_line_width=1.5, opacity=0.8)  # Marker styling
-            fig.update_layout(plot_bgcolor='white', bargap=0.1)  # Background color and bar gap
-            fig.update_xaxes(tickangle=-45, tickfont=dict(size=10))  # Rotate x-axis labels for better readability
-            fig.update_yaxes(gridcolor='lightgray')  # Gridlines
+            # Create bar graph with custom color
+            fig = go.Figure(data=[go.Bar(x=monthly_pageviews['Month of the year'], 
+                                         y=monthly_pageviews['Pageviews'], 
+                                         marker_color='#1f77b4')])  # Blue color scheme
+            fig.update_layout(title=f'Pageviews by Month in {selected_year}',
+                              xaxis_title='Month of the Year',
+                              yaxis_title='Pageviews Count',
+                              plot_bgcolor='white',  # Background color
+                              bargap=0.1,  # Gap between bars
+                              xaxis=dict(tickangle=-45, tickfont=dict(size=10)),  # Rotate x-axis labels
+                              yaxis=dict(gridcolor='lightgray'),  # Gridlines
+                              paper_bgcolor='rgba(0,0,0,0)')  # Transparent background
+
             st_module.plotly_chart(fig)
         else:
             st_module.warning(f"The 'Month of the year' column is not present in the dataset for the year {selected_year}.")
@@ -86,18 +88,39 @@ def line_graph(df):
     else:
         st_module.warning("The 'Month of the year' or 'Avg. Session Duration' column is not present in the dataset.")
 
-# Correlation
+
+# Define a function to clean and convert columns to numeric types
+def clean_and_convert_to_numeric(df, columns):
+    for col in columns:
+        if df[col].dtype == 'object':  # Check if column is of string type
+            df[col] = df[col].str.replace(',', '')  # Remove commas
+        
+        try:
+            df[col] = pd.to_numeric(df[col], errors='coerce')  # Convert to numeric, errors='coerce' will convert non-convertible values to NaN
+        except ValueError:
+            st_module.warning(f"Unable to convert column '{col}' to numeric type.")
+    
+    return df
+
 def display_correlation(df):
     st_module.write("### Correlation Between Parameters")
-    # Filter numeric columns
-    numeric_columns = df.select_dtypes(include=['float64', 'int64']).columns
-    corr_matrix = df[numeric_columns].corr()
     
-    fig, ax = plt.subplots()
-    sns.heatmap(corr_matrix, annot=True, cmap='coolwarm', fmt=".2f", ax=ax)
+    # Clean and convert columns to numeric types
+    numeric_columns = df.columns
+    df_cleaned = clean_and_convert_to_numeric(df, numeric_columns)
+    
+    # Drop non-numeric columns for correlation calculation
+    numeric_df = df_cleaned.select_dtypes(include=['float64', 'int64'])
+    
+    # Calculate correlation matrix
+    corr_matrix = numeric_df.corr()
+    
+    # Plot correlation matrix as a heatmap
+    fig, ax = plt.subplots(figsize=(10, 8))  # Adjust figsize as needed
+    sns.heatmap(corr_matrix, annot=True, cmap='inferno', fmt=".2f", ax=ax)
     st_module.pyplot(fig)
 
-
+    
 # Boxplot
 def display_boxplot(df):
     df['Sessions'] = pd.to_numeric(df['Sessions'], errors='coerce')
@@ -164,12 +187,10 @@ def conversion(df):
         st_module.warning("The 'Month of the year' column is not present in the dataset.")
 
 def main():
+    st_module.set_page_config(page_title='Website traffic analysis')
     st_module.title("Dataset Explorer")
 
     display_image()
-
-   # Set the page title using JavaScript
-    st_module.markdown("<script>window.document.title='Website traffic analysis';</script>", unsafe_allow_html=True)
 
     file_path = st_module.file_uploader("Upload CSV", type=["csv"])
 
