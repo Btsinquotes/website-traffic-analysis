@@ -1,106 +1,147 @@
 import pandas as pd
-import streamlit as st_module
+import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
-import seaborn as sns
-import matplotlib.pyplot as plt
 
 # Display introductory image
 def display_image():
-    st_module.image("D://..project//network.jpeg", width=400)
-    
+    st.image("D:\..project\ppg.jpeg", width=400)
+
 # Load dataset
-@st_module.cache_data
+@st.cache_data
 def load_dataset(file_path):
     df = pd.read_csv(file_path)
     return df
 
 # Display data
 def display_data(df):
-    st_module.write(df)
+    st.write(df)
 
-# Bar graph
-def bargraph(df, x_column, y_column):
-    st_module.subheader("Bar Graph")
-    fig = px.bar(df, x=x_column, y=y_column)
-    st_module.plotly_chart(fig)
+# Refined Pie Chart based on Years
+def pie_chart(df, labels_column, values_column):
+    st.subheader("Refined Pie Chart based on Years")
+    
+    # Get unique years from the DataFrame
+    years = sorted(df['Year'].unique())
 
-# Line graph
+    # Dropdown for selecting year
+    selected_year = st.selectbox("Select Year", years)
+
+    # Filter data based on selected year
+    filtered_df = df[df['Year'] == selected_year]
+
+    # Plot pie chart
+    fig = px.pie(filtered_df, names=labels_column, values=values_column, title=f"Pie Chart of {labels_column} vs {values_column} for {selected_year}")
+    st.plotly_chart(fig)
+
+# Updated Line Graph Function with Year Selection
 def line_graph(df, x_column, y_column):
-    st_module.subheader("Line Graph")
-    fig = px.line(df, x=x_column, y=y_column)
-    st_module.plotly_chart(fig)
+    st.subheader("Line Graph")
+
+    # Get unique years from the DataFrame
+    years = sorted(df['Year'].unique())
+
+    # Dropdown for selecting year
+    selected_year = st.selectbox("Select Year", years)
+
+    # Filter data based on selected year
+    filtered_df = df[df['Year'] == selected_year]
+
+    # Try converting non-numeric data to integers
+    try:
+        filtered_df[y_column] = pd.to_numeric(filtered_df[y_column], errors='coerce', downcast='integer')
+    except ValueError:
+        st.warning(f"Unable to convert non-numeric data in column '{y_column}' to integers for the selected year.")
+        return
+
+    fig = px.line(filtered_df, x=x_column, y=y_column, title=f"Line Graph of {x_column} vs {y_column} for {selected_year}")
+
+    fig.update_layout(
+        xaxis_title=x_column,
+        yaxis_title=y_column,
+        hovermode="x unified",
+        dragmode="zoom",
+        xaxis=dict(
+            rangeslider=dict(
+                visible=True
+            )
+        )
+    )
+
+    st.plotly_chart(fig)
 
 # Scatter plot
 def scatter_plot(df, x_column, y_column):
-    st_module.subheader("Scatter Plot")
+    st.subheader("Scatter Plot")
     fig = px.scatter(df, x=x_column, y=y_column)
-    st_module.plotly_chart(fig)
+    st.plotly_chart(fig)
 
 # Correlation
 def correlation(df, columns):
-    st_module.subheader("Correlation Plot")
-    numeric_df = df[columns].replace(['%', ',', '<0.01'], '', regex=True).replace('', float('nan')).astype(float)  # Remove '%' and ',' and convert to float
+    st.subheader("Correlation Plot")
+    numeric_df = df[columns].replace(['%', ',', '<0.01'], '', regex=True).replace('', float('nan')).astype(float)
     corr = numeric_df.corr()
-    
+
     fig = go.Figure(data=go.Heatmap(
         z=corr.values,
         x=corr.index.values,
         y=corr.columns.values,
-        colorscale='RdBu',  # Red for negative correlation, Blue for positive correlation
+        colorscale='RdBu',
         colorbar=dict(title='Correlation'),
-        hovertemplate='Correlation: %{z:.2f}<extra></extra>',  # Add hover text for correlation values
-        text=corr.values.round(2),  # Display correlation values in the cells
-        zmin=-1, zmax=1  # Set color scale limits to -1 and 1
+        hovertemplate='Correlation: %{z:.2f}<extra></extra>',
+        text=corr.values.round(2),
+        zmin=-1, zmax=1
     ))
-    
+
     fig.update_layout(
         title='Correlation Heatmap',
-        xaxis=dict(title=columns[0]),  # Add axis labels
+        xaxis=dict(title=columns[0]),
         yaxis=dict(title=columns[1]),
         annotations=[dict(x=x, y=y, text=str(corr.iloc[x, y].round(2)),
-                          font=dict(color='white' if abs(corr.iloc[x, y]) > 0.5 else 'black'),  # Adjust text color based on correlation strength
-                          showarrow=False) 
-                     for x in range(corr.shape[0]) for y in range(corr.shape[1])],  # Add annotations
-        height=500, width=700  # Adjust plot size
+                          font=dict(color='white' if abs(corr.iloc[x, y]) > 0.5 else 'black'),
+                          showarrow=False)
+                     for x in range(corr.shape[0]) for y in range(corr.shape[1])],
+        height=500, width=700
     )
-    
-    st_module.plotly_chart(fig)
 
+    st.plotly_chart(fig)
 
-# Boxplot
-def boxplot(df, x_column, y_column):
-    st_module.subheader("Box Plot")
-    
-    fig = go.Figure()
-    fig.add_trace(go.Box(y=df[x_column], name=x_column))
-    fig.add_trace(go.Box(y=df[y_column], name=y_column))
-    
-    fig.update_layout(xaxis_title='Parameter', yaxis_title='Value', title="Box Plots")
-    st_module.plotly_chart(fig)
+# Boxplot without messages
+def boxplot(df, x_column, y_columns):
+    st.subheader("Box Plots")
+
+    num_columns = len(y_columns)
+    for idx, y_column in enumerate(y_columns):
+        st.subheader(f"Box Plot for {y_column}")
+        fig = go.Figure()
+        fig.add_trace(go.Box(y=df[y_column], name=y_column))
+        fig.update_layout(xaxis_title=x_column, yaxis_title=y_column, title=f"Box Plot for {y_column}")
+        st.plotly_chart(fig, use_container_width=True)
+
+        if idx < num_columns - 1:
+            st.write('<hr style="border:2px solid gray"> ', unsafe_allow_html=True)
 
 def main():
-    st_module.set_page_config(page_title='Website traffic analysis')
-    st_module.title("Dataset Explorer")
+    st.set_page_config(page_title='Website Traffic Analysis')
+    st.title("Dataset Explorer")
 
     display_image()
 
-    file_path = st_module.file_uploader("Upload CSV", type=["csv"])
+    file_path = st.file_uploader("Upload CSV", type=["csv"])
 
     if file_path is not None:
         df = load_dataset(file_path)
-        st_module.success("Dataset loaded successfully.")
-        
-        # Select columns for analysis
-        columns = st_module.multiselect("Select Parameters", df.columns)
+        st.success("Dataset loaded successfully.")
+
+        columns = st.multiselect("Select Parameters", df.columns)
 
         if len(columns) == 2:
-            analysis_option = st_module.selectbox("Select Analysis", ["Display Data", "Bar Graph", "Line Graph", "Scatter Plot", "Correlation", "Boxplot"])
+            analysis_option = st.selectbox("Select Analysis", ["Display Data", "Pie Chart", "Line Graph", "Scatter Plot", "Correlation", "Boxplot"])
 
             if analysis_option == "Display Data":
                 display_data(df[columns])
-            elif analysis_option == "Bar Graph":
-                bargraph(df, columns[0], columns[1])
+            elif analysis_option == "Pie Chart":
+                pie_chart(df, columns[0], columns[1])
             elif analysis_option == "Line Graph":
                 line_graph(df, columns[0], columns[1])
             elif analysis_option == "Scatter Plot":
@@ -108,9 +149,9 @@ def main():
             elif analysis_option == "Correlation":
                 correlation(df, columns)
             elif analysis_option == "Boxplot":
-                boxplot(df, columns[0], columns[1])
+                boxplot(df, columns[0], columns)
         else:
-            st_module.warning("Please select exactly two parameters for analysis.")
+            st.warning("Please select exactly two parameters for analysis.")
 
 if __name__ == "__main__":
     main()
